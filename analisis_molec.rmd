@@ -1,0 +1,106 @@
+---
+title: "Análisis Completo de Hábitos de Lectura en México (MOLEC)"
+author: "Equipo 1. MA1001B.206"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+  html_document:
+    toc: true
+    df_print: paged
+---
+
+### 1. Configuración y Carga de Datos
+Iniciamos cargando todas las librerías necesarias y nuestro conjunto de datos ya limpio y procesado.
+
+```{r setup_y_carga, include=FALSE}
+# Librerías para manipulación, visualización y estadísticas
+library(tidyverse)
+library(e1071)      # Para calcular sesgo y curtosis
+library(corrplot)   # Para visualizar correlaciones
+```
+
+```{r cargar_datos}
+# Cargar los datos limpios desde el archivo RDS
+datos <- readRDS("molec_datos_combinados_final.rds")
+
+# Crear la variable de grupo de edad para usarla en todo el análisis
+datos_con_edad <- datos %>%
+  mutate(
+    grupo_edad = factor(case_when(
+      edad <= 29 ~ "18-29 años",
+      edad <= 44 ~ "30-44 años",
+      edad <= 59 ~ "45-59 años",
+      edad >= 60 ~ "60 años o más"
+    ), levels = c("18-29 años", "30-44 años", "45-59 años", "60 años o más"))
+  )
+
+# Vistazo inicial a la estructura de los datos
+glimpse(datos_con_edad)
+```
+
+### 2. Análisis Descriptivo Completo
+Aquí generamos un resumen estadístico detallado de nuestras variables clave, incluyendo medidas de tendencia central, dispersión y forma, así como tablas de frecuencia.
+
+```{r analisis_descriptivo}
+# --- Resumen completo para EDAD ---
+print("--- Resumen Estadístico: EDAD ---")
+# Cuartiles y media con la función summary()
+summary(datos_con_edad$edad)
+# Tabla con medidas de dispersión y forma
+datos_con_edad %>%
+  summarise(
+    Desviacion_Estandar = sd(edad, na.rm = TRUE),
+    Sesgo = skewness(edad, na.rm = TRUE),
+    Curtosis = kurtosis(edad, na.rm = TRUE)
+  )
+
+# --- Resumen completo para MINUTOS DE LECTURA (solo para quienes leen) ---
+print("--- Resumen Estadístico: MINUTOS DE LECTURA (lectores) ---")
+datos_con_edad %>%
+  filter(minutos_lectura_continua > 0) %>%
+  pull(minutos_lectura_continua) %>%
+  summary()
+datos_con_edad %>%
+  filter(minutos_lectura_continua > 0) %>%
+  summarise(
+    Desviacion_Estandar = sd(minutos_lectura_continua, na.rm = TRUE),
+    Sesgo = skewness(minutos_lectura_continua, na.rm = TRUE),
+    Curtosis = kurtosis(minutos_lectura_continua, na.rm = TRUE)
+  )
+
+# --- Tablas de Distribución de Frecuencia ---
+print("--- Frecuencia: Motivo principal para NO leer ---")
+datos_con_edad %>%
+  count(motivo_no_leer, sort = TRUE) %>%
+  filter(!is.na(motivo_no_leer)) %>%
+  mutate(porcentaje = n / sum(n) * 100)
+```
+
+### 3. Análisis Bivariado (Correlación y Comparación de Grupos)
+Cruzamos variables para encontrar relaciones y patrones. Comparamos los perfiles de los lectores de internet vs. los no lectores.
+
+```{r analisis_bivariado}
+# --- Correlación entre variables numéricas ---
+print("--- Matriz de Correlación (Edad vs. Minutos Lectura) ---")
+matriz_cor <- datos_con_edad %>%
+  select(edad, minutos_lectura_continua) %>%
+  na.omit() %>%
+  cor()
+print(matriz_cor)
+corrplot(matriz_cor, method = "number")
+
+
+# --- Boxplot para comparar distribuciones ---
+print("--- Boxplot: Minutos de Lectura (Internet vs. No Internet) ---")
+ggplot(datos_con_edad, aes(x = lee_sitios_web_blogs, y = minutos_lectura_continua, fill = lee_sitios_web_blogs)) +
+  geom_boxplot() +
+  coord_cartesian(ylim = c(0, 240)) + 
+  labs(
+    title = "Distribución de Minutos de Lectura Continua",
+    x = "¿Lee en Sitios Web/Blogs?",
+    y = "Minutos de Lectura"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
