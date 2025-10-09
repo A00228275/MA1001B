@@ -1,0 +1,111 @@
+---
+title: "Limpieza de encuesta MOLEC"
+author: "Equipo 1. MA1001B.206"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+### 1. Lectura de las bases de datos
+
+```{r}
+### 1. Lectura de las bases de datos
+
+# Leer las bases de datos MOLEC de 2019 a 2024
+M19 <- read.csv("data/Datos_molec_2019.csv")
+M20 <- read.csv("data/Datos_molec_2020.csv")
+M21 <- read.csv("data/Datos_molec_2021.csv")
+M22 <- read.csv("data/Datos_molec_2022.csv")
+M23 <- read.csv("data/Datos_molec_2023.csv")
+M24 <- read.csv("data/Datos_molec_2024.csv")
+```
+
+### 2. Lectura de los diccionarios
+
+```{r}
+# Leer los diccionarios de cada año
+Dicc19 <- read.csv("data/Diccionario_molec_2019.csv")
+Dicc20 <- read.csv("data/Diccionario_molec_2020-1.csv")
+Dicc21 <- read.csv("data/Diccionario_molec_2021-1.csv")
+Dicc22 <- read.csv("data/Diccionario_molec_2022-1.csv")
+Dicc23 <- read.csv("data/Diccionario_molec_2023-1.csv")
+Dicc24 <- read.csv("data/Diccionario_molec_2024-1.csv")
+```
+
+### 3. Exploración de la estructura de los datos
+
+```{r}
+# Ver estructura de cada base de datos (columnas, tipos de variables, etc.)
+str(M19)
+str(M20)
+str(M21)
+str(M22)
+str(M23)
+str(M24)
+```
+
+### 4. Visualización rápida de las primeras filas
+
+```{r}
+# Mostrar las primeras 6 filas de cada base
+head(M19)
+head(M20)
+head(M21)
+head(M22)
+head(M23)
+head(M24)
+```
+
+### 5. Visualización en hoja separada
+
+```{r}
+# Abrir en hoja de Excel-like dentro de RStudio
+# (eval=FALSE para que no se ejecute automáticamente al knit)
+View(M19)
+View(M20)
+View(M21)
+View(M22) 
+View(M23)
+View(M24)
+```
+
+### 6. Resumen estadístico y valores faltantes
+
+```{r}
+# Resumen general de los datos por año
+summary(M19)
+summary(M20)
+summary(M21)
+summary(M22)
+summary(M23)
+summary(M24)
+
+# Calcular porcentaje de datos faltantes en la variable 3 de cada dataset
+sum(is.na(M19[,3])) / length(M19[,3])
+sum(is.na(M20[,3])) / length(M20[,3])
+sum(is.na(M21[,3])) / length(M21[,3])
+sum(is.na(M22[,3])) / length(M22[,3])
+sum(is.na(M23[,3])) / length(M23[,3])
+sum(is.na(M24[,3])) / length(M24[,3])
+```
+
+### 7. Selección de variables relevantes
+
+```{r}
+# Seleccionar variables 3 a 34 en cada base
+M19final <- M19[3:34] 
+M20final <- M20[3:34] 
+M21final <- M21[3:34] 
+M22final <- M22[3:34] 
+M23final <- M23[3:34] 
+M24final <- M24[3:34]
+```
+
