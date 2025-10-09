@@ -1,0 +1,128 @@
+---
+title: "Medidas de tendencia central"
+author: "Equipo 1. MA1001B.206"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+  html_document:
+    toc: true
+    df_print: paged
+---
+---
+
+### 1. Carga de Librerías y Datos Limpios
+Iniciamos cargando nuestras herramientas y el conjunto de datos ya procesado.
+
+```{r setup_y_carga}
+library(tidyverse)
+
+# Cargar los datos limpios
+datos <- readRDS("molec_datos_combinados_final.rds")
+
+# Crear los grupos de edad para todo el análisis
+datos_con_edad <- datos %>%
+  mutate(
+    grupo_edad = factor(case_when(
+      edad <= 29 ~ "18-29 años",
+      edad <= 44 ~ "30-44 años",
+      edad <= 59 ~ "45-59 años",
+      edad >= 60 ~ "60 años o más"
+    ), levels = c("18-29 años", "30-44 años", "45-59 años", "60 años o más"))
+  )
+```
+
+### 2. Análisis de Materiales: ¿Qué leen los lectores de internet?
+Aquí creamos una **tabla de contingencia** para ver la relación directa: si lees en internet, ¿qué otros materiales consumes? Esto responde a la pregunta **"¿en qué materiales influye?"**.
+
+```{r tabla_contingencia_materiales}
+# Calculamos el porcentaje de lectores de cada material, segmentado por si leen o no en sitios web
+resumen_materiales <- datos_con_edad %>%
+  filter(!is.na(lee_sitios_web_blogs)) %>%
+  group_by(lee_sitios_web_blogs) %>%
+  summarise(
+    porc_lee_libros = mean(lee_libros == "Sí", na.rm = TRUE) * 100,
+    porc_lee_revistas = mean(lee_revistas == "Sí", na.rm = TRUE) * 100,
+    porc_lee_periodicos = mean(lee_periodicos == "Sí", na.rm = TRUE) * 100,
+    porc_lee_historietas = mean(lee_historietas == "Sí", na.rm = TRUE) * 100
+  )
+
+print("--- Porcentaje de consumo de otros materiales ---")
+print(resumen_materiales)
+
+# Visualización para comparar los perfiles de consumo
+resumen_materiales %>%
+  pivot_longer(cols = -lee_sitios_web_blogs, names_to = "material", values_to = "porcentaje") %>%
+  mutate(material = str_replace(material, "porc_lee_", "")) %>%
+  ggplot(aes(x = material, y = porcentaje, fill = lee_sitios_web_blogs)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Perfil de Lectura: Lectores de Internet vs. No Lectores de Internet",
+    subtitle = "Quienes leen en internet también tienden a leer más otros materiales",
+    x = "Tipo de Material",
+    y = "Porcentaje de Personas que lo Leen (%)",
+    fill = "¿Lee en Sitios Web?"
+  ) +
+  theme_minimal()
+```
+
+### 3. Análisis de Formato: ¿Prefieren digital o impreso?
+Investigamos si los lectores de internet muestran una preferencia mayor por los formatos digitales en libros y periódicos.
+
+```{r analisis_formato}
+# Creamos una tabla resumen de la preferencia de formato
+resumen_formato <- datos_con_edad %>%
+  filter(!is.na(lee_sitios_web_blogs), lee_libros == "Sí" | lee_periodicos == "Sí") %>%
+  group_by(lee_sitios_web_blogs) %>%
+  summarise(
+    porc_libro_digital = mean(formato_libro_digital == "Sí", na.rm = TRUE) * 100,
+    porc_libro_impreso = mean(formato_libro_impreso == "Sí", na.rm = TRUE) * 100,
+    porc_periodico_digital = mean(formato_periodico_digital == "Sí", na.rm = TRUE) * 100,
+    porc_periodico_impreso = mean(formato_periodico_impreso == "Sí", na.rm = TRUE) * 100
+  )
+
+print("--- Preferencia de Formato (Digital vs. Impreso) ---")
+print(resumen_formato)
+```
+
+### 4. Análisis por Edad: ¿Cómo cambia el patrón?
+Este es el análisis más importante. Repetimos la comparación de materiales, pero esta vez **separando los resultados para cada grupo de edad**. Esto responde a la pregunta **"¿cambia con la edad?"**.
+
+```{r analisis_materiales_por_edad}
+# Calculamos el porcentaje de lectores de internet para cada grupo de edad
+lectores_internet_por_edad <- datos_con_edad %>%
+  group_by(grupo_edad) %>%
+  summarise(
+    porc_lee_internet = mean(lee_sitios_web_blogs == "Sí", na.rm = TRUE) * 100
+  )
+
+print("--- Porcentaje de lectores de internet por grupo de edad ---")
+print(lectores_internet_por_edad)
+
+# Gráfico para visualizar la brecha generacional
+ggplot(lectores_internet_por_edad, aes(x = grupo_edad, y = porc_lee_internet)) +
+  geom_bar(stat = "identity", fill = "#009E73") +
+  geom_text(aes(label = paste0(round(porc_lee_internet, 1), "%")), vjust = -0.5) +
+  labs(
+    title = "El Hábito de Leer en Internet Disminuye con la Edad",
+    x = "Grupo de Edad",
+    y = "Porcentaje que Lee en Sitios Web/Blogs (%)"
+  ) +
+  theme_minimal()
+
+# Ahora, una visualización más compleja: ¿cómo cambia el consumo de LIBROS por edad e internet?
+datos_con_edad %>%
+  filter(!is.na(lee_sitios_web_blogs)) %>%
+  group_by(grupo_edad, lee_sitios_web_blogs) %>%
+  summarise(porc_lee_libros = mean(lee_libros == "Sí", na.rm = TRUE) * 100, .groups = 'drop') %>%
+  ggplot(aes(x = grupo_edad, y = porc_lee_libros, fill = lee_sitios_web_blogs)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Lectura de Libros: Influencia de Internet por Grupo de Edad",
+    subtitle = "En todos los grupos de edad, los lectores de internet leen más libros",
+    x = "Grupo de Edad",
+    y = "Porcentaje que Lee Libros (%)",
+    fill = "¿Lee en Sitios Web?"
+  ) +
+  theme_minimal()
+```

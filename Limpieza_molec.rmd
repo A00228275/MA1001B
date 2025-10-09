@@ -9,46 +9,37 @@ output:
 ---
 
 ### 1. Configuración del Entorno
-Cargamos los paquetes necesarios para la manipulación de datos.
-
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(here)
 ```
 
 ### 2. Detección Automática de Archivos
-El script buscará todos los archivos que coincidan con el patrón "Datos_molec_" seguido de un año y ".csv" en la carpeta del proyecto.
-
 ```{r encontrar_archivos}
-# Usamos list.files() con un patrón para encontrar los archivos relevantes
 lista_archivos <- list.files(
-  path = here(), 
+  path = here("data"), 
   pattern = "Datos_molec_\\d{4}\\.csv",
-  full.names = TRUE # Obtenemos la ruta completa del archivo
+  full.names = TRUE 
 )
 
-# Mostramos los archivos que se encontraron para verificación
 if (length(lista_archivos) > 0) {
   message("Se encontraron los siguientes archivos para procesar:")
   print(lista_archivos)
 } else {
-  message("Advertencia: No se encontraron archivos con el patrón 'Datos_molec_YYYY.csv' en esta carpeta.")
+  message("Advertencia: No se encontraron archivos con el patrón 'Datos_molec_YYYY.csv' en la carpeta 'data'.")
 }
 ```
 
 ### 3. Creación de una Función de Limpieza
-Encapsulamos el proceso de limpieza en una función para aplicarla a cada archivo encontrado. Esta función está adaptada a tu selección de variables.
-
 ```{r funcion_limpieza}
 limpiar_datos_molec <- function(ruta_archivo) {
   
-  # Extraemos el año del nombre del archivo
-  anio_encuesta <- str_extract(ruta_archivo, "\\d{4}")
+  # --- MODIFICACIÓN AQUÍ ---
+  # Se ajustó la expresión regular para que busque 4 dígitos JUSTO ANTES de ".csv"
+  anio_encuesta <- str_extract(ruta_archivo, "\\d{4}(?=\\.csv)")
   
-  # Leemos el archivo CSV
   datos_crudos <- read_csv(ruta_archivo)
   
-  # Aplicamos tu lógica de limpieza personalizada
   datos_limpios <- datos_crudos %>%
     select(
       edad, p2, p3_1, p3_2, p3_3, p3_4, p3_5,
@@ -56,22 +47,12 @@ limpiar_datos_molec <- function(ruta_archivo) {
       p26, p30, p32, p34_4
     ) %>%
     rename(
-      edad = edad,
-      acostumbra_leer = p2,
-      lee_libros = p3_1,
-      lee_revistas = p3_2,
-      lee_periodicos = p3_3,
-      lee_historietas = p3_4,
-      lee_sitios_web_blogs = p3_5,
-      formato_libro_digital = p8_1,
-      formato_libro_impreso = p8_2,
-      formato_revista_digital = p14_1,
-      formato_revista_impresa = p14_2,
-      formato_periodico_digital = p20_1,
-      formato_periodico_impreso = p20_2,
-      minutos_lectura_continua = p26,
-      comprension_lectura = p30,
-      motivo_no_leer = p32,
+      edad = edad, acostumbra_leer = p2, lee_libros = p3_1, lee_revistas = p3_2,
+      lee_periodicos = p3_3, lee_historietas = p3_4, lee_sitios_web_blogs = p3_5,
+      formato_libro_digital = p8_1, formato_libro_impreso = p8_2,
+      formato_revista_digital = p14_1, formato_revista_impresa = p14_2,
+      formato_periodico_digital = p20_1, formato_periodico_impreso = p20_2,
+      minutos_lectura_continua = p26, comprension_lectura = p30, motivo_no_leer = p32,
       libros_en_casa_niñez = p34_4
     ) %>%
     mutate(
@@ -79,29 +60,20 @@ limpiar_datos_molec <- function(ruta_archivo) {
       across(
         .cols = c(acostumbra_leer:formato_periodico_impreso, libros_en_casa_niñez),
         .fns = ~case_when(
-          . == 1 ~ "Sí",
-          . == 2 ~ "No",
-          . == 3 ~ "No recuerda",
-          TRUE ~ NA_character_
+          . == 1 ~ "Sí", . == 2 ~ "No", . == 3 ~ "No recuerda", TRUE ~ NA_character_
         )
       ),
       comprension_lectura = case_when(
-        comprension_lectura == 1 ~ "Poca",
-        comprension_lectura == 2 ~ "La mitad",
-        comprension_lectura == 3 ~ "La mayor parte",
-        comprension_lectura == 4 ~ "Toda",
+        comprension_lectura == 1 ~ "Poca", comprension_lectura == 2 ~ "La mitad",
+        comprension_lectura == 3 ~ "La mayor parte", comprension_lectura == 4 ~ "Toda",
         TRUE ~ NA_character_
       ),
       motivo_no_leer = case_when(
-        motivo_no_leer == 1 ~ "Falta de interés/gusto",
-        motivo_no_leer == 2 ~ "Prefiere otras actividades",
-        motivo_no_leer == 3 ~ "Falta de tiempo",
-        motivo_no_leer == 4 ~ "Falta de dinero",
-        motivo_no_leer == 5 ~ "Problemas de salud",
-        motivo_no_leer == 6 ~ "Otro",
+        motivo_no_leer == 1 ~ "Falta de interés/gusto", motivo_no_leer == 2 ~ "Prefiere otras actividades",
+        motivo_no_leer == 3 ~ "Falta de tiempo", motivo_no_leer == 4 ~ "Falta de dinero",
+        motivo_no_leer == 5 ~ "Problemas de salud", motivo_no_leer == 6 ~ "Otro",
         TRUE ~ NA_character_
       ),
-      # Añadimos la columna con el año correspondiente
       anio = anio_encuesta
     )
   
@@ -110,36 +82,21 @@ limpiar_datos_molec <- function(ruta_archivo) {
 ```
 
 ### 4. Procesamiento y Combinación de Todos los Archivos
-Aplicamos la función a cada archivo y unimos los resultados en una única tabla.
-
 ```{r procesar_y_unir}
-# Solo procedemos si se encontraron archivos
 if (length(lista_archivos) > 0) {
-  # map_dfr aplica la función a cada archivo y une los resultados
   datos_combinados <- map_dfr(lista_archivos, limpiar_datos_molec)
-  
   message("¡Procesamiento de todos los archivos completado!")
-  
-  # Mostramos la estructura de la tabla final
   glimpse(datos_combinados)
-  
-  # Verificamos los registros por año
   message("Resumen de registros por año:")
   print(table(datos_combinados$anio))
 }
 ```
 
 ### 5. Guardar el Resultado Combinado
-Finalmente, guardamos el `data.frame` que contiene los datos limpios de todos los años.
-
 ```{r guardar_datos}
 if (exists("datos_combinados")) {
-  # Guardar en formato RDS (recomendado para R)
   saveRDS(datos_combinados, file = here("molec_datos_combinados_final.rds"))
-  
-  # Guardar también como CSV para usar en otros programas
   write_csv(datos_combinados, file = here("molec_datos_combinados_final.csv"))
-  
   message("El archivo combinado con todos los años se ha guardado como 'molec_datos_combinados_final.rds'")
 }
 ```
