@@ -1,0 +1,141 @@
+---
+title: "Ampliación con técnicas inferenciales"
+author: "Equipo 1. MA1001B.20"
+date: "`r Sys.Date()`"
+output: 
+  pdf_document:
+    toc: true
+  html_document:
+    toc: true
+    df_print: paged
+---
+1. Objetivo y Configuración del Análisis
+1.1. Objetivo de investigación.
+EL objetivo de este análisis es reconcoer si el formato de lectura (Digital y No Digital) se asocia con el tiempo de lectura contínua de la población joven (18 a 29 años). Puntualmente, queremos responder a la pregunta: "¿Existen diferencias estadísticamente significativas en el promedio de minutos de lectura contínua entre jóvenes que leen en formato digital y aquellos que no?"
+
+1.2. Hipótesis
+Para abordar el tema, planteamos la siguiente prueba de hipótesis con un nivel de significancia de 0.04.
+-Hipótesis Nula: La media de minutos de lectura contínua es la misma para ambos grupos 
+$$H_{0}: \mu_{\text{digital}} = \mu_{\text{analogo}}$$
+-Hipótesis Alternativa: Las medias de los minutos de lectura contínua son diferentes entre sí
+$$H_{1}: \mu_{\text{digital}}  {\ne}  \mu_{\text{analogo}}$$
+1.3- Configuración y Carga de Datos
+Se inicia cargando las librerías necesarias para el desarrollo del código
+```{r setup_y_carga, include=FALSE}
+# Librerías para manipulación de estadísticas
+library(tidyverse)
+library(e1071)
+library(corrplot)
+library(ggplot2)
+```
+
+2.- Preparación y filtración de los datos
+```{r cargar_datos}
+# Cargar datos desde la misma carpeta
+datos <- read_rds("molec_datos_combinados_final.rds", refhook = NULL) %>%
+# Crear la variable de grupo de edad para usarla en todo el análisis
+datos_con_edad <- datos %>%
+  mutate(
+    grupo_edad = factor(case_when(
+      edad <= 29 ~ "18-29 años",
+      edad <= 44 ~ "30-44 años",
+      edad <= 59 ~ "45-59 años",
+      edad >= 60 ~ "60 años o más"
+    ), levels = c("18-29 años", "30-44 años", "45-59 años", "60 años o más"))
+  )
+
+# Vistazo inicial a la estructura de los datos
+glimpse(datos_con_edad)
+```
+2.1- Ahora buscaremos filtrar la base de datos para recuperar únicamente la población que sí lee
+```{r filtro_lectores}
+#1.-Filtramos y nos quedamos con los lectores
+lectores <- datos_con_edad %>%
+  filter(acostumbra_leer == "Sí")
+
+#2.- Crear variable que identifica a los lectores digitales
+lectores <- lectores %>%
+  mutate(
+    lee_en_digital = factor(if_else(lee_sitios_web_blogs == "Sí" | formato_libro_digital == "Sí" | formato_revista_digital == "Sí" | formato_periodico_digital == "Sí", "Digital", "No Digital"))
+  )
+
+#3.- Para hacer énfasis en el grupo lector de jóvenes
+
+lectores_jovenes_limpio <- lectores %>%
+  filter(grupo_edad == "18-29 años" ) %>%
+  filter(!is.na(lee_en_digital))
+
+#4.- Tabla para jóvenes
+glimpse(lectores_jovenes_limpio)
+```
+3.- Análisis Descriptivo y Exploración Visual
+Ahora, con los datos preparados, agruparemos por tipo de lector (Digital y No Digital) y calcularemos la media lectura contínua, esto para realizar un análisis descriptivo y entender las caraterísticas de nuestra muestra. Necesitaremos la variable minutos_lectura_continua.
+
+3.1- Tabla Resumen
+Se calculan las estadísticas clave (cantidad de lectores, media, mediana y desviación estándar)
+```{r separacion_y_media}
+#Calculamos los minutos de lectura promedio para cada grupo
+resumen_jovenes <- lectores_jovenes_limpio %>%
+  group_by(lee_en_digital) %>%
+  summarise(
+    cant_lectores = n(),
+    mean_min = mean(minutos_lectura_continua, na.rm = TRUE),
+    med_min = median(minutos_lectura_continua, na.rm = TRUE),
+    sdev_min = sd(minutos_lectura_continua, na.rm = TRUE)
+  )
+
+#Checamos la tabla creada
+print(resumen_jovenes)
+```
+La tabla nos muestra el promedio de lectura entre personas que leen en digital y los que no, donde predominan en media de lectura el grupo "Digital". Sin embargo, la desviación estándar sugiere que hay una alta variabilidad
+
+3.2- Exploración visual
+Para visualizar mejor estos resultados usaremos una boxplot.
+```{r boxplot}
+ggplot(lectores_jovenes_limpio, aes(x = lee_en_digital, y= minutos_lectura_continua, fill = lee_en_digital)) + geom_boxplot(alpha = 0.7) + geom_jitter(width = 0.1, alpha = 0.3) + labs(
+  title = "distribución de Minutos de Lectura Contínua en Jóvenes",
+  subtitle = "Comparación entre lectores digitales y análogos",
+  x = "Tipo de Lector",
+  y = "Minutos de Lectura Contínua"
+) + theme_minimal() + scale_fill_manual(values = c("Digital" = "#0072B2", "No Digital" = "#0045A4")) + guides(fill = "none")
+
+```
+El gráfico nos afirma la mayor dispersión y la presencia de valores atípicos en el grupo "Digital", lo cual explica por qué la diferencia de medias puede no ser estadísticamente significativa, sin embargo, no deja de ser cierta.
+
+4.- Análisis Inferencial
+
+4.1- Verificación de supuestos
+Realizamos un test de homogeneidad de varianzas
+```{r}
+#Prueba F para comparar las varianzas de los dos grupos
+var.test(minutos_lectura_continua ~ lee_en_digital, data = lectores_jovenes_limpio, conf.level = 0.96)
+```
+Podemos percatarnos que nuestro p-value = 0.0424 < 0.04, lo que nos ayuda a rechazar la hipótesis nula de varianzas iguales. Ahora utilizamos la prueba t de Welch, que no asume varianzas iguales.
+
+4.2- Ejecución de la Prueba t
+```{r prueba_t}
+#Realizamos una prueba t para comparar medias de ambos grupos
+prueba_t <- t.test(minutos_lectura_continua ~ lee_en_digital, data = lectores_jovenes_limpio, conf.level = 0.96)
+
+prueba_t
+```
+
+En el siguiente chunk se realiza el cálculo del valor crítico, es decir, la frontera
+```{r}
+#Grados de libertad
+df <- prueba_t$parameter
+#Valor t en frontera para prueba de dos colas
+alpha <- 0.04
+valor_frontera <- qt(p = alpha/2, df = df, lower.tail = FALSE)
+
+print(prueba_t)
+print(valor_frontera)
+```
+La prueba t de Student nos brinda un p-value = 0.1441, lo que nos dice que los valores tienen una alta variabilidad.
+
+Por consiguiente, verificaremos supuestos con prueba de homogeneidad
+```{r}
+#Prueba de homogeneidad de varianzas
+var.test(minutos_lectura_continua ~ lee_en_digital, data= lectores_jovenes_limpio, conf.level = 0.96)
+```
+
