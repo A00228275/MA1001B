@@ -24,15 +24,13 @@ Se inicia cargando las librerías necesarias para el desarrollo del código
 ```{r setup_y_carga, include=FALSE}
 # Librerías para manipulación de estadísticas
 library(tidyverse)
-library(e1071)
-library(corrplot)
 library(ggplot2)
 ```
 
 2.- Preparación y filtración de los datos
 ```{r cargar_datos}
 # Cargar datos desde la misma carpeta
-datos <- read_rds("molec_datos_combinados_final.rds", refhook = NULL) %>%
+datos <- read_rds("molec_datos_combinados_final.rds", refhook = NULL) 
 # Crear la variable de grupo de edad para usarla en todo el análisis
 datos_con_edad <- datos %>%
   mutate(
@@ -51,7 +49,7 @@ glimpse(datos_con_edad)
 ```{r filtro_lectores}
 #1.-Filtramos y nos quedamos con los lectores
 lectores <- datos_con_edad %>%
-  filter(acostumbra_leer == "Sí")
+  filter(acostumbra_leer == "Sí") 
 
 #2.- Crear variable que identifica a los lectores digitales
 lectores <- lectores %>%
@@ -68,6 +66,7 @@ lectores_jovenes_limpio <- lectores %>%
 #4.- Tabla para jóvenes
 glimpse(lectores_jovenes_limpio)
 ```
+
 3.- Análisis Descriptivo y Exploración Visual
 Ahora, con los datos preparados, agruparemos por tipo de lector (Digital y No Digital) y calcularemos la media lectura contínua, esto para realizar un análisis descriptivo y entender las caraterísticas de nuestra muestra. Necesitaremos la variable minutos_lectura_continua.
 
@@ -87,7 +86,7 @@ resumen_jovenes <- lectores_jovenes_limpio %>%
 #Checamos la tabla creada
 print(resumen_jovenes)
 ```
-La tabla nos muestra el promedio de lectura entre personas que leen en digital y los que no, donde predominan en media de lectura el grupo "Digital". Sin embargo, la desviación estándar sugiere que hay una alta variabilidad
+La tabla nos muestra el promedio de lectura entre personas que leen en digital y los que no, donde predominan en media de lectura el grupo digital (mean = 49.8135). Sin embargo, la desviación estándar sugiere que hay una alta variabilidad
 
 3.2- Exploración visual
 Para visualizar mejor estos resultados usaremos una boxplot.
@@ -100,7 +99,7 @@ ggplot(lectores_jovenes_limpio, aes(x = lee_en_digital, y= minutos_lectura_conti
 ) + theme_minimal() + scale_fill_manual(values = c("Digital" = "#0072B2", "No Digital" = "#0045A4")) + guides(fill = "none")
 
 ```
-El gráfico nos afirma la mayor dispersión y la presencia de valores atípicos en el grupo "Digital", lo cual explica por qué la diferencia de medias puede no ser estadísticamente significativa, sin embargo, no deja de ser cierta.
+El gráfico nos dice una mayor dispersión y la presencia de valores atípicos en el grupo "Digital", lo cual explica por qué la diferencia de medias puede no ser estadísticamente significativa.
 
 4.- Análisis Inferencial
 
@@ -119,6 +118,7 @@ prueba_t <- t.test(minutos_lectura_continua ~ lee_en_digital, data = lectores_jo
 
 prueba_t
 ```
+La prueba t de Student nos brinda un p-value = 0.1441, lo que nos dice que los valores tienen una alta variabilidad. 
 
 En el siguiente chunk se realiza el cálculo del valor crítico, es decir, la frontera
 ```{r}
@@ -131,11 +131,23 @@ valor_frontera <- qt(p = alpha/2, df = df, lower.tail = FALSE)
 print(prueba_t)
 print(valor_frontera)
 ```
-La prueba t de Student nos brinda un p-value = 0.1441, lo que nos dice que los valores tienen una alta variabilidad.
+El estadístico t = 1.5661 cae cómodamente en la zona de frontera [-2.3110, 2.3110], como no cae en zona de rechazo, no se rechaza la hipótesis nula
 
 Por consiguiente, verificaremos supuestos con prueba de homogeneidad
 ```{r}
 #Prueba de homogeneidad de varianzas
 var.test(minutos_lectura_continua ~ lee_en_digital, data= lectores_jovenes_limpio, conf.level = 0.96)
 ```
+Debido a que p-value = 0.0424 < 0.04, da una fuerte idea de que las varianzas no son iguales. La evidencia es muy grande y fuerte para no confiar en una prueba que requiera varianzas iguales.
+5.- Conclusión
+En el análisis se propuso determinar si hay diferencia significativa en el tiempo de lectura entre jóvenes que leen en formato digital y aquellos que no.
 
+Los resultados mostraron que, en promedio, los lectores "digitales" reportan un mayor tiempo de lectura (49.8 min.) en comparación con el grupo "no digital" (36.9 min.). Sin embargo, recopilamos dos datos clave:
+
+1-.- Varianzas diferentes: La prueba F de homogeneidad de varianzas (p<0.04) confirma el que la dispersión de los datos de lectores digitales es significativamente mayor, como se observó en el boxplot.
+
+2.- La diferencia de medias no es significativa, pues el estadístico de prueba (t=1.5661) no superó el valor crítico (frontera =2.3110). Además, el p-value (0.1441) fue mucho mayor al nivel de significancia del 96% (alpha = 0.04).
+
+En base a nuestra evidencia, no podemos rechazar la hipótesis nula; no existe evidencia estadística suficiente para poder afirmar que el promedio de minutos de lectura contínua sea diferente entre jóvenes que leen en formato digital y los que no. 
+
+La diferencia observada en las medias es debido por la alta variabilidad que hay dentro de los grupos y al azar muestral.
